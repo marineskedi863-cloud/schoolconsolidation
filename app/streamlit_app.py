@@ -259,13 +259,13 @@ def render_step3():
                 with bc1:
                     st.metric("학생1인당 기본적교육활동비", f"{brow['basic_edu_activity_krw'] / student_2025:,.0f}원")
                     if prov_budget_avg is not None:
-                        st.caption(f"평균 {prov_budget_avg['basic_per_student']:,.0f}원 "
-                                   f"(예산자료 확보 {prov_budget_avg['school_count']}개교 기준, 경기도 전역 아님)")
+                        st.caption(f"경기도 {info['school_level']} 평균 {prov_budget_avg['basic_per_student']:,.0f}원 "
+                                   f"(예산자료 확보 {prov_budget_avg['school_count']}개교 기준)")
                 with bc2:
                     st.metric("학생1인당 선택적교육활동비", f"{brow['elective_edu_activity_krw'] / student_2025:,.0f}원")
                     if prov_budget_avg is not None:
-                        st.caption(f"평균 {prov_budget_avg['elective_per_student']:,.0f}원 "
-                                   f"(예산자료 확보 {prov_budget_avg['school_count']}개교 기준, 경기도 전역 아님)")
+                        st.caption(f"경기도 {info['school_level']} 평균 {prov_budget_avg['elective_per_student']:,.0f}원 "
+                                   f"(예산자료 확보 {prov_budget_avg['school_count']}개교 기준)")
                 st.caption(f"2025년 예결산 세출({brow['seoutguse_gubun']}) ÷ 2025년 학생수 {int(student_2025)}명 기준")
         st.divider()
 

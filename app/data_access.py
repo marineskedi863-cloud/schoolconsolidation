@@ -117,8 +117,11 @@ def load_travel_time_matrix(region: str) -> pd.DataFrame | None:
 def load_school_budget() -> pd.DataFrame | None:
     """2025년 학교 예결산 세출(기본적/선택적 교육활동비). backend/etl/load_school_budget.py 산출물.
 
-    현재는 연천군만 확보됨(school_budget_2025.csv). 다른 지역은 아직 없으면 None으로 처리되고
-    호출측(3단계)이 해당 지표를 생략한다 — 원본이 사용자 제공 파일이라 자동 확장 불가.
+    2026-08-12 확인: 원본 xlsx 4개(학교회계/사립학교 교비회계 예·결산서)는 처음부터 전국 단위
+    자료였고, 애초에 school_dim.csv가 연천 19개교뿐이던 시절에 짠 매칭 로직이 그 범위로만
+    걸러졌던 것 — school_dim이 경기도 전역(2,050개교)으로 확대된 뒤 ETL을 재실행해
+    2,046/2,050개교(경기도 전역, 매칭실패 4개교만 예외)로 커버리지가 넓어짐. 아직 예산자료
+    자체가 없는 지역(경기도 외)에서는 여전히 None 처리, 호출측(3단계)이 해당 지표를 생략한다.
     """
     path = PROCESSED / "school_budget_2025.csv"
     if not path.exists():
@@ -173,10 +176,10 @@ def province_averages(school_level: str) -> dict | None:
 def province_budget_averages(school_level: str) -> dict | None:
     """학생1인당 기본적/선택적교육활동비의 가중평균(총 예산÷총 2025년 학생수).
 
-    2026-08-12 기준 school_budget_2025.csv는 연천군 19개교만 확보돼 있어, 이 함수가 반환하는 값은
-    엄밀히는 "경기도 평균"이 아니라 "예산자료가 확보된 학교들의 평균"이다(호출측이 그 사실을
-    캡션에 명시할 것). 다른 지역 예산자료가 추가되면 이 함수는 코드 변경 없이 자동으로 넓은
-    범위를 반영하게 된다.
+    2026-08-12 school_budget_2025.csv ETL을 경기도 전역 school_dim 기준으로 재실행해
+    2,046/2,050개교(경기도 전역)로 커버리지가 넓어짐 — 이제 이 함수의 반환값은 실질적으로
+    "경기도 평균"으로 봐도 무방하다(매칭 실패 4개교만 예외). 다른 지역 예산자료가 추가되면
+    코드 변경 없이 자동으로 그 범위까지 반영된다.
     """
     budget = load_school_budget()
     if budget is None:

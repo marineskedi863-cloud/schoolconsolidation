@@ -41,7 +41,8 @@ def main():
 
     dup = combined[combined.duplicated(CODE_COL, keep=False)]
     if len(dup):
-        print(f"경고: 학교코드 중복 매칭 {len(dup)}건 — {sorted(dup[CODE_COL].unique())}")
+        preview = sorted(dup[CODE_COL].unique())[:20]
+        print(f"경고: 학교코드 중복 매칭 {len(dup)}건. 예시: {preview}")
 
     result = combined.rename(columns={
         CODE_COL: "school_code",
@@ -53,7 +54,8 @@ def main():
 
     unmatched = codes - set(result["school_code"])
     if unmatched:
-        print(f"경고: 예산자료 매칭 실패 {len(unmatched)}개교 — {sorted(unmatched)}")
+        preview = sorted(unmatched)[:20]
+        print(f"경고: 예산자료 매칭 실패 {len(unmatched)}개교. 예시: {preview}")
 
     result.to_csv(OUT, index=False, encoding="utf-8-sig")
     print(f"저장: {OUT} ({len(result)}/{len(codes)}개교 매칭)")
