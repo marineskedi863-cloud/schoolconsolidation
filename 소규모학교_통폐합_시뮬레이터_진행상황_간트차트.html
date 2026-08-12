@@ -1,0 +1,444 @@
+<title>소규모학교 통폐합 시뮬레이터 — 진행상황 간트차트 (1일차)</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --paper:      #f7f5ef;
+    --surface:    #ffffff;
+    --ink:        #1c1f1d;
+    --muted:      #6f6c61;
+    --line:       #e1ded2;
+    --baseline:   #c9c6b7;
+    --border:     rgba(28,31,29,0.10);
+    --accent:     #276b64;
+    --accent-soft:rgba(39,107,100,0.10);
+    --done:       #2f7d4f;
+    --replaced:   #6a5aa0;
+    --replaced-soft: rgba(106,90,160,0.10);
+    --partial:    #b9821f;
+    --todo:       #9b968a;
+    --series-1: #2a78d6; /* 기획/요구사항 */
+    --series-2: #eb6834; /* 데이터 확보·파이프라인 */
+    --series-3: #1baf7a; /* 백엔드/API */
+    --series-4: #eda100; /* 프론트엔드 */
+    --series-5: #e87ba4; /* 알고리즘·시뮬레이션 엔진 */
+    --series-6: #008300; /* 테스트/QA */
+    --series-7: #4a3aa7; /* 배포/보고 */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --paper:      #14161a;
+      --surface:    #1b1e22;
+      --ink:        #f2f1ea;
+      --muted:      #a8a496;
+      --line:       #2d3036;
+      --baseline:   #3a3d40;
+      --border:     rgba(242,241,234,0.12);
+      --accent:     #4fa89e;
+      --accent-soft:rgba(79,168,158,0.14);
+      --done:       #4caf72;
+      --replaced:   #9a8ad1;
+      --replaced-soft: rgba(154,138,209,0.16);
+      --partial:    #d9a53a;
+      --todo:       #7c7a71;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+      --series-4: #c98500; --series-5: #d55181; --series-6: #2fae2f; --series-7: #9085e9;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --paper:      #14161a;
+    --surface:    #1b1e22;
+    --ink:        #f2f1ea;
+    --muted:      #a8a496;
+    --line:       #2d3036;
+    --baseline:   #3a3d40;
+    --border:     rgba(242,241,234,0.12);
+    --accent:     #4fa89e;
+    --accent-soft:rgba(79,168,158,0.14);
+    --done:       #4caf72;
+    --replaced:   #9a8ad1;
+    --replaced-soft: rgba(154,138,209,0.16);
+    --partial:    #d9a53a;
+    --todo:       #7c7a71;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+    --series-4: #c98500; --series-5: #d55181; --series-6: #2fae2f; --series-7: #9085e9;
+  }
+  :root[data-theme="light"] .viz-root { color-scheme: light; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); }
+  .viz-root {
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+    color: var(--ink);
+    padding: 30px 32px 52px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace; font-variant-numeric: tabular-nums; }
+
+  .theme-toggle {
+    position: fixed; top: 14px; right: 18px; z-index: 50;
+    font-size: 12px; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+
+  h1 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 13.5px; color: var(--muted); margin: 0 0 22px; }
+  .subtitle b { color: var(--ink); }
+
+  /* KPI strip */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; position: relative; overflow: hidden;
+  }
+  .kpi .num { font-size: 24px; font-weight: 700; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .kpi .lbl { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .kpi .dot { position: absolute; top: 14px; right: 14px; width: 8px; height: 8px; border-radius: 50%; }
+  .kpi.total .num { color: var(--ink); }
+  .kpi.done .num, .kpi.done .dot { color: var(--done); background: var(--done); }
+  .kpi.replaced .num, .kpi.replaced .dot { color: var(--replaced); background: var(--replaced); }
+  .kpi.partial .num, .kpi.partial .dot { color: var(--partial); background: var(--partial); }
+  .kpi.todo .num, .kpi.todo .dot { color: var(--todo); background: var(--todo); }
+
+  .progress-wrap { margin-bottom: 22px; }
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .progress-head b { font-size: 13px; color: var(--ink); }
+  .progress-track { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; display: flex; }
+  .progress-fill { height: 100%; background: var(--accent); }
+
+  .callout {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--replaced-soft);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--replaced);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 22px;
+    font-size: 13px; line-height: 1.65; color: var(--muted);
+  }
+  .callout svg { flex: none; margin-top: 2px; }
+  .callout b { color: var(--ink); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 10px; font-size: 12px; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .legend-sep { width: 1px; align-self: stretch; background: var(--border); }
+  .legend-chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 4px; font-size: 9px; font-weight: 700; color: #fff;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px 12px;
+    overflow-x: auto;
+    margin-top: 12px;
+  }
+
+  .grid-wrap { position: relative; min-width: 1180px; }
+
+  .date-header { display: grid; grid-template-columns: 300px repeat(19, 1fr); font-size: 11px; color: var(--muted); }
+  .date-header .day-cell { text-align: center; padding: 4px 2px 6px; border-bottom: 1px solid var(--baseline); }
+  .date-header .day-cell.weekend { color: var(--ink); font-weight: 600; }
+  .date-header .day-cell.today-col { color: var(--accent); font-weight: 700; }
+  .date-header .day-cell .dow { display: block; font-size: 9.5px; margin-top: 1px; }
+
+  .phase-title {
+    display: grid; grid-template-columns: 300px repeat(19, 1fr);
+    align-items: center; font-size: 12px; font-weight: 700; color: var(--ink);
+    padding: 10px 0 4px;
+  }
+  .phase-title .chip { display: inline-flex; align-items: center; gap: 7px; }
+  .phase-title .dot { width: 9px; height: 9px; border-radius: 2px; }
+
+  .task-row { display: grid; grid-template-columns: 300px repeat(19, 1fr); align-items: center; min-height: 38px; position: relative; }
+  .task-row:nth-of-type(odd) { background: color-mix(in srgb, var(--line) 32%, transparent); }
+  .task-row .row-label { font-size: 12px; color: var(--muted); padding: 5px 14px 5px 20px; line-height: 1.3; }
+  .task-row .row-label .note { display: block; font-size: 10.5px; color: var(--muted); opacity: 0.85; margin-top: 1px; }
+
+  .bar-cell { grid-column: var(--col-start) / span var(--col-span); position: relative; height: 100%; display: flex; align-items: center; }
+  .ghost-bar {
+    height: 14px; border-radius: 4px; width: 100%;
+    background: var(--phase-color); opacity: 0.16;
+    border: 1px dashed var(--phase-color);
+  }
+  .marker-cell { grid-column: var(--mk-col) / span 1; position: relative; height: 100%; display: flex; align-items: center; z-index: 2; }
+  .marker {
+    height: 20px; min-width: 20px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+  .marker.todo-ring {
+    background: transparent; border: 1.5px solid var(--todo); color: var(--todo);
+    box-shadow: none;
+  }
+
+  .daycols-bg { position: absolute; top: 0; left: 300px; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(19, 1fr); pointer-events: none; z-index: 0; }
+  .daycols-bg .col { border-right: 1px solid var(--line); }
+  .daycols-bg .col.weekend { background: color-mix(in srgb, var(--baseline) 12%, transparent); }
+  .daycols-bg .col.today { background: var(--accent-soft); }
+
+  .milestones { position: absolute; top: 0; left: 300px; right: 0; bottom: 0; pointer-events: none; z-index: 1; }
+  .milestone-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed var(--muted); }
+  .milestone-label {
+    position: absolute; top: -2px; transform: translateX(-50%);
+    font-size: 10.5px; color: var(--ink); font-weight: 700;
+    background: var(--surface); padding: 0 5px; white-space: nowrap;
+    border: 1px solid var(--baseline); border-radius: 3px;
+  }
+  .today-line { position: absolute; top: -18px; bottom: 0; width: 0; border-left: 2px solid var(--accent); }
+  .today-label { position: absolute; top: -18px; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+
+  .rows-scroll { position: relative; }
+
+  .tablewrap { margin-top: 30px; }
+  .tablewrap h2 { font-size: 15px; margin: 0 0 10px; }
+  table.sched { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table.sched th, table.sched td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.sched th { color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  table.sched td { color: var(--ink); }
+  table.sched td.num { font-family: ui-monospace, "SF Mono", Consolas, monospace; color: var(--muted); white-space: nowrap; }
+  table.sched .phase-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  table.sched .status-pill {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 20px;
+  }
+  table.sched td.note-cell { color: var(--muted); font-size: 12px; max-width: 300px; }
+
+  .foot-note { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.75; }
+</style>
+
+<div class="viz-root">
+  <button class="theme-toggle" id="themeToggle">다크 모드</button>
+
+  <h1>소규모학교 통폐합 대상교 선정 시뮬레이터 — 진행상황 보고</h1>
+  <p class="subtitle">기준일: <b>2026년 8월 11일(화) · 1일차 / 총 19일</b> 계획(8/11~8/29) 대비 실적. 원 계획은 <span class="mono">개발일정_간트차트.html</span> 참조.</p>
+
+  <div class="kpis" id="kpiRow"></div>
+  <div class="progress-wrap">
+    <div class="progress-head"><span>전체 진행률 (완료=1, 대체완료=1, 부분완료=0.5, 미착수=0 가중)</span><b id="progressPct" class="mono">–</b></div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="callout">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5 15 14.5H1L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="color:var(--replaced)"/><path d="M8 6v3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" style="color:var(--replaced)"/><circle cx="8" cy="11.6" r="0.9" fill="currentColor" style="color:var(--replaced)"/></svg>
+    <div>
+      <b>왜 1일차에 이렇게 많이 끝났나 — 기술스택 전환 효과:</b> 8/11 중 1차 MVP 구현 스택을 React+FastAPI+PostgreSQL에서 <b>Streamlit 단일 앱</b>으로 전환했다. 그 결과 원래 여러 날에 걸쳐 나뉘어 있던 <b>백엔드·프론트엔드·알고리즘 트랙 작업이 하나의 구현으로 합쳐져</b> 1일차에 동시에 완료됐다(보라색 <b>↺ 대체완료</b> 표시). 다만 이는 <b>데모/시연용 임시 스택 기준</b>이며, 연구보고회 승인 후 프로덕션(React+FastAPI+PostgreSQL·Lovable 클라우드) 전환 시 해당 작업은 별도로 다시 진행해야 한다.
+    </div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="chart-card">
+    <div class="grid-wrap">
+      <div class="date-header" id="dateHeader"></div>
+      <div class="rows-scroll" id="rowsScroll">
+        <div class="daycols-bg" id="daycolsBg"></div>
+        <div class="milestones" id="milestones"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <h2>작업별 실적 (표 보기)</h2>
+    <table class="sched" id="schedTable">
+      <thead>
+        <tr><th>단계</th><th>작업</th><th>계획 기간</th><th>상태</th><th>비고</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <p class="foot-note">
+    ※ 굵은 마커(✓ ↺ ◐ ○)는 <b>8/11(1일차)</b> 열에 표시되며, 옅은 점선 바는 원래 계획했던 기간이다 — 즉 실제로 무슨 일이 언제 일어났는지가 아니라 "계획 대비 현재 도달한 상태"를 나타낸다.<br/>
+    ※ 근거: 프로젝트 폴더 <span class="mono">의사결정_기록.md</span>(2026-08-11, 항목 1~9). 마일스톤 M1(8/13)·M2(8/15)·M3(8/23)·M4(8/29)는 원 계획과 동일.
+  </p>
+</div>
+
+<script>
+const PHASES = [
+  { key: "plan", label: "1. 기획·요구사항 확정", color: "var(--series-1)" },
+  { key: "data", label: "2. 데이터 확보·파이프라인", color: "var(--series-2)" },
+  { key: "backend", label: "3. 백엔드·API 개발", color: "var(--series-3)" },
+  { key: "frontend", label: "4. 프론트엔드 개발", color: "var(--series-4)" },
+  { key: "algo", label: "5. 알고리즘·시뮬레이션 엔진(CPMP)", color: "var(--series-5)" },
+  { key: "qa", label: "6. 통합테스트·QA", color: "var(--series-6)" },
+  { key: "deploy", label: "7. 배포·보고", color: "var(--series-7)" },
+];
+
+const STATUS = {
+  done:     { label: "완료",     color: "var(--done)",     icon: "✓", weight: 1 },
+  replaced: { label: "대체완료", color: "var(--replaced)", icon: "↺", weight: 1 },
+  partial:  { label: "부분완료", color: "var(--partial)",  icon: "◐", weight: 0.5 },
+  todo:     { label: "미착수",   color: "var(--todo)",     icon: "○", weight: 0 },
+};
+
+const DAY0 = new Date(2026, 7, 11);
+function dayIndex(m, d) { const dt = new Date(2026, m - 1, d); return Math.round((dt - DAY0) / 86400000) + 1; }
+function fmt(m, d) { const dow = ["일","월","화","수","목","금","토"][new Date(2026, m - 1, d).getDay()]; return `8/${d}(${dow})`; }
+
+const TASKS = [
+  { phase: "plan", name: "잔여 미결사항 확정(시범지역·GIS/좌표 출처·수용상한·보정계수)", s: [8,11], e: [8,12], status: "done", note: "요구사항정의서 v1.0으로 확정(계획보다 하루 앞당김)" },
+  { phase: "plan", name: "화면설계(와이어프레임) 확정", s: [8,12], e: [8,13], status: "done", note: "와이어프레임 초안 게시 — 정식 확정 전 초안 단계" },
+
+  { phase: "data", name: "원자료 정제 및 DB 스키마 설계·적재(CSV+xlsx 통합)", s: [8,12], e: [8,14], status: "partial", note: "스키마 설계(db/schema.sql)는 완료, 실제 적재는 스택전환으로 보류" },
+  { phase: "data", name: "외부데이터 확보(행정경계 GIS·학교좌표 지오코딩·격자인구 연동)", s: [8,12], e: [8,15], status: "partial", note: "학교좌표 19/19·격자인구 확보, GIS 행정경계(SGIS)는 미연동" },
+  { phase: "data", name: "카카오맵·모빌리티 API 키 발급 및 연동 테스트", s: [8,13], e: [8,14], status: "todo", note: "미착수 — 이동시간은 직선거리로 임시 대체 중" },
+
+  { phase: "backend", name: "인증(로그인) 및 기본 API 서버 구축", s: [8,14], e: [8,16], status: "replaced", note: "별도 API 서버 대신 Streamlit 세션 로그인으로 대체 구현" },
+  { phase: "backend", name: "지역·학교·통계 조회 API 개발", s: [8,15], e: [8,18], status: "replaced", note: "별도 API 없이 data_access.py가 파일을 직접 로드" },
+
+  { phase: "frontend", name: "로그인·지도(1단계) 화면 개발", s: [8,14], e: [8,16], status: "done", note: "Streamlit 화면으로 구현(지도는 중심점 마커로 임시 대체)" },
+  { phase: "frontend", name: "학교선택·지도배치(2단계)·기본통계(3단계) 화면", s: [8,16], e: [8,19], status: "done", note: "실데이터로 정상 작동 확인(브라우저 구동 검증)" },
+  { phase: "frontend", name: "학생거주정보(4단계) 화면", s: [8,18], e: [8,20], status: "done", note: "격자인구 데이터로 정상 작동 확인" },
+
+  { phase: "algo", name: "이동시간 행렬(d_ij) 산출 모듈(카카오모빌리티)", s: [8,16], e: [8,18], status: "partial", note: "직선거리 근사로 구현, 실제 도로망 API 연동은 미착수" },
+  { phase: "algo", name: "CPMP 최적화 엔진 구현(솔버 연동)", s: [8,17], e: [8,21], status: "done", note: "PuLP 솔버 구현, 합성·실데이터 양쪽 검증 완료" },
+  { phase: "algo", name: "시뮬레이션(5단계)·결과(6단계) 화면 연동", s: [8,20], e: [8,23], status: "done", note: "p=10 조건으로 실행해 정상해 도출 확인" },
+
+  { phase: "qa", name: "통합테스트(시범지역 데이터로 1~6단계 시나리오 검증)", s: [8,22], e: [8,25], status: "partial", note: "브라우저 수동 구동으로 전체 흐름 확인, 정식 테스트 시나리오 문서화는 아직" },
+  { phase: "qa", name: "버그 수정 및 UI 다듬기", s: [8,25], e: [8,27], status: "partial", note: "발견된 버그 3건은 즉시 수정, 발표용 UI 다듬기는 남음" },
+
+  { phase: "deploy", name: "배포 및 요구사항정의서 대비 최종 검수", s: [8,28], e: [8,28], status: "todo", note: "미착수" },
+  { phase: "deploy", name: "결과 보고", s: [8,29], e: [8,29], status: "todo", note: "미착수" },
+];
+
+const MILESTONES = [ { m: 8, d: 13, label: "M1" }, { m: 8, d: 15, label: "M2" }, { m: 8, d: 23, label: "M3" }, { m: 8, d: 29, label: "M4" } ];
+const TOTAL_DAYS = 19;
+const WEEKENDS = [15,16,22,23,29].map(d => dayIndex(8, d));
+const TODAY_COL = dayIndex(8, 11); // 1
+
+// KPI tiles
+const counts = { done: 0, replaced: 0, partial: 0, todo: 0 };
+TASKS.forEach(t => counts[t.status]++);
+const weighted = TASKS.reduce((sum, t) => sum + STATUS[t.status].weight, 0);
+const pct = Math.round((weighted / TASKS.length) * 100);
+
+const kpiRow = document.getElementById("kpiRow");
+kpiRow.innerHTML = `
+  <div class="kpi total"><div class="num">${TASKS.length}</div><div class="lbl">전체 작업</div></div>
+  <div class="kpi done"><div class="dot"></div><div class="num">${counts.done}</div><div class="lbl">완료</div></div>
+  <div class="kpi replaced"><div class="dot"></div><div class="num">${counts.replaced}</div><div class="lbl">대체완료(스택전환)</div></div>
+  <div class="kpi partial"><div class="dot"></div><div class="num">${counts.partial}</div><div class="lbl">부분완료</div></div>
+  <div class="kpi todo"><div class="dot"></div><div class="num">${counts.todo}</div><div class="lbl">미착수</div></div>
+`;
+document.getElementById("progressPct").textContent = pct + "%";
+document.getElementById("progressFill").style.width = pct + "%";
+
+// legend
+const legend = document.getElementById("legend");
+let legendHtml = "";
+PHASES.forEach(p => { legendHtml += `<div class="legend-item"><span class="legend-swatch" style="background:${p.color}"></span>${p.label}</div>`; });
+legendHtml += `<div class="legend-sep"></div>`;
+Object.entries(STATUS).forEach(([k, s]) => {
+  const chipStyle = k === "todo" ? `background:transparent;border:1.5px solid ${s.color};color:${s.color}` : `background:${s.color}`;
+  legendHtml += `<div class="legend-item"><span class="legend-chip" style="${chipStyle}">${s.icon}</span>${s.label} (8/11 실적)</div>`;
+});
+legendHtml += `<div class="legend-item"><span class="legend-swatch" style="background:transparent;border:1px dashed var(--muted)"></span>옅은 점선 = 원래 계획 기간</div>`;
+legend.innerHTML = legendHtml;
+
+// date header
+const dateHeader = document.getElementById("dateHeader");
+let headerHtml = `<div></div>`;
+for (let i = 1; i <= TOTAL_DAYS; i++) {
+  const dt = new Date(DAY0); dt.setDate(DAY0.getDate() + (i - 1));
+  const d = dt.getDate();
+  const isWeekend = WEEKENDS.includes(i);
+  const isToday = i === TODAY_COL;
+  const dow = ["일","월","화","수","목","금","토"][dt.getDay()];
+  headerHtml += `<div class="day-cell${isWeekend ? " weekend" : ""}${isToday ? " today-col" : ""}">${d}<span class="dow">${dow}</span></div>`;
+}
+dateHeader.innerHTML = headerHtml;
+
+// day column backgrounds
+const daycolsBg = document.getElementById("daycolsBg");
+let bgHtml = "";
+for (let i = 1; i <= TOTAL_DAYS; i++) {
+  const cls = [WEEKENDS.includes(i) ? "weekend" : "", i === TODAY_COL ? "today" : ""].filter(Boolean).join(" ");
+  bgHtml += `<div class="col ${cls}"></div>`;
+}
+daycolsBg.innerHTML = bgHtml;
+
+// rows
+const rowsScroll = document.getElementById("rowsScroll");
+PHASES.forEach(phase => {
+  const tasks = TASKS.filter(t => t.phase === phase.key);
+  if (!tasks.length) return;
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "phase-title";
+  titleRow.innerHTML = `<span class="chip"><span class="dot" style="background:${phase.color}"></span>${phase.label}</span>`;
+  rowsScroll.appendChild(titleRow);
+
+  tasks.forEach(t => {
+    const colStart = dayIndex(t.s[0], t.s[1]) + 1;
+    const colSpan = dayIndex(t.e[0], t.e[1]) - dayIndex(t.s[0], t.s[1]) + 1;
+    const mkCol = TODAY_COL + 1;
+    const st = STATUS[t.status];
+    const markerHtml = t.status === "todo"
+      ? `<div class="marker todo-ring">${st.icon}</div>`
+      : `<div class="marker" style="background:${st.color}">${st.icon}</div>`;
+    const row = document.createElement("div");
+    row.className = "task-row";
+    row.innerHTML = `
+      <div class="row-label">${t.name}<span class="note">${t.note}</span></div>
+      <div class="bar-cell" style="--col-start:${colStart}; --col-span:${colSpan}; --phase-color:${phase.color};">
+        <div class="ghost-bar"></div>
+      </div>
+      <div class="marker-cell" style="--mk-col:${mkCol};">${markerHtml}</div>
+    `;
+    rowsScroll.appendChild(row);
+  });
+});
+
+// milestone lines
+const milestones = document.getElementById("milestones");
+let msHtml = "";
+MILESTONES.forEach(ms => {
+  const idx = dayIndex(ms.m, ms.d);
+  const pctPos = (idx / TOTAL_DAYS) * 100;
+  msHtml += `<div class="milestone-line" style="left:${pctPos}%"></div>`;
+  msHtml += `<div class="milestone-label" style="left:${pctPos}%">${ms.label}</div>`;
+});
+milestones.innerHTML = msHtml;
+
+const todayIdx = TODAY_COL - 1;
+const todayPct = (todayIdx / TOTAL_DAYS) * 100;
+const todayLine = document.createElement("div");
+todayLine.className = "today-line";
+todayLine.style.left = todayPct + "%";
+todayLine.innerHTML = `<span class="today-label">현재(1일차) 8/11</span>`;
+milestones.appendChild(todayLine);
+
+// table
+const tbody = document.querySelector("#schedTable tbody");
+TASKS.forEach(t => {
+  const phase = PHASES.find(p => p.key === t.phase);
+  const st = STATUS[t.status];
+  const pillStyle = t.status === "todo" ? `background:transparent;border:1px solid ${st.color};color:${st.color}` : `background:color-mix(in srgb, ${st.color} 16%, transparent);color:${st.color}`;
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><span class="phase-dot" style="background:${phase.color}"></span>${phase.label.replace(/^\\d+\\.\\s*/, "")}</td>
+    <td>${t.name}</td>
+    <td class="num">${fmt(t.s[0], t.s[1])} ~ ${fmt(t.e[0], t.e[1])}</td>
+    <td><span class="status-pill" style="${pillStyle}">${st.icon} ${st.label}</span></td>
+    <td class="note-cell">${t.note}</td>
+  `;
+  tbody.appendChild(tr);
+});
+
+// theme toggle
+const btn = document.getElementById("themeToggle");
+btn.addEventListener("click", () => {
+  const root = document.documentElement;
+  const cur = root.getAttribute("data-theme");
+  if (cur === "dark") { root.setAttribute("data-theme", "light"); btn.textContent = "다크 모드"; }
+  else { root.setAttribute("data-theme", "dark"); btn.textContent = "라이트 모드"; }
+});
+</script>

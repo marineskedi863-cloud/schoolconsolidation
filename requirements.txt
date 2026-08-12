@@ -1,0 +1,15 @@
+# 실행: streamlit run app/streamlit_app.py
+# 배포(Render 등) 빌드 명령: pip install -r requirements.txt
+
+streamlit==1.60.0
+pandas==3.0.5
+folium==0.20.0
+streamlit-folium==0.27.3
+PuLP==3.3.2
+altair==6.2.2
+requests==2.34.2
+
+# ETL 스크립트(backend/etl/*.py, 배포된 앱은 직접 쓰지 않고 사전 가공 데이터를 읽음)에 필요
+pyproj==3.7.2
+openpyxl==3.1.5
+pyshp==3.1.6

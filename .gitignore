@@ -1,0 +1,19 @@
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+
+# ETL 원본 소스(1회성 가공용, 배포된 앱은 data/processed·data/raw/school_locations.csv만 읽음) —
+# 용량이 커서(수십 MB) 저장소에는 올리지 않고 로컬에만 보관한다.
+data/raw/grid_*/
+data/raw/budget_2025/
+data/raw/school_locations_gyeonggi_raw.json
+data/raw/school_locations_yeoncheon_raw.json
+data/raw/*_backup.csv
+data/processed/*_backup.csv
+data/processed/admin_boundary_연천군.geojson
+data/processed/population_grid_연천군.csv
+/2025년_*.xlsx
+/2026년_*.xlsx
+/*.zip
+/복사본*.csv

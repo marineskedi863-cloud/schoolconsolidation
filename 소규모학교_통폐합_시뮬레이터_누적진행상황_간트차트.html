@@ -1,0 +1,301 @@
+<title>소규모학교 통폐합 시뮬레이터 — 누적 진행상황(2일차)</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --paper:      #f7f5ef;
+    --surface:    #ffffff;
+    --ink:        #1c1f1d;
+    --muted:      #6f6c61;
+    --line:       #e1ded2;
+    --baseline:   #c9c6b7;
+    --border:     rgba(28,31,29,0.10);
+    --accent:     #276b64;
+    --accent-soft:rgba(39,107,100,0.10);
+    --done:       #2f7d4f;
+    --replaced:   #6a5aa0;
+    --partial:    #b9821f;
+    --todo:       #9b968a;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+    --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #a6790a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --paper: #14161a; --surface: #1b1e22; --ink: #f2f1ea; --muted: #a8a496;
+      --line: #2d3036; --baseline: #3a3d40; --border: rgba(242,241,234,0.12);
+      --accent: #4fa89e; --accent-soft: rgba(79,168,158,0.14);
+      --done: #4caf72; --replaced: #9a8ad1; --partial: #d9a53a; --todo: #7c7a71;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --series-5: #d55181; --series-6: #2fae2f; --series-7: #9085e9; --series-8: #c99a3d;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --paper: #14161a; --surface: #1b1e22; --ink: #f2f1ea; --muted: #a8a496;
+    --line: #2d3036; --baseline: #3a3d40; --border: rgba(242,241,234,0.12);
+    --accent: #4fa89e; --accent-soft: rgba(79,168,158,0.14);
+    --done: #4caf72; --replaced: #9a8ad1; --partial: #d9a53a; --todo: #7c7a71;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #2fae2f; --series-7: #9085e9; --series-8: #c99a3d;
+  }
+  :root[data-theme="light"] .viz-root { color-scheme: light; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); }
+  .viz-root {
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+    color: var(--ink);
+    padding: 30px 32px 52px;
+    max-width: 1220px;
+    margin: 0 auto;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .theme-toggle {
+    position: fixed; top: 14px; right: 18px; z-index: 50;
+    font-size: 12px; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+
+  h1 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+  .subtitle { font-size: 13.5px; color: var(--muted); margin: 0 0 22px; }
+  .subtitle b { color: var(--ink); }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .kpi .num { font-size: 22px; font-weight: 700; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .kpi .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+  .progress-wrap { margin-bottom: 20px; }
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .progress-head b { font-size: 13px; color: var(--ink); }
+  .progress-track { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); }
+
+  .callout {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--accent-soft); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 22px;
+    font-size: 13px; line-height: 1.65; color: var(--muted);
+  }
+  .callout svg { flex: none; margin-top: 2px; }
+  .callout b { color: var(--ink); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 12px; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px 14px; overflow-x: auto; margin-top: 12px; }
+  .grid-wrap { position: relative; min-width: 760px; }
+
+  .date-header { display: grid; grid-template-columns: 320px repeat(2, 1fr); font-size: 12px; color: var(--muted); font-weight: 600; }
+  .date-header .day-cell { text-align: center; padding: 4px 2px 8px; border-bottom: 1px solid var(--baseline); }
+  .date-header .day-cell .dow { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
+  .phase-title { display: grid; grid-template-columns: 320px repeat(2, 1fr); align-items: center; font-size: 12.5px; font-weight: 700; color: var(--ink); padding: 11px 0 4px; }
+  .phase-title .chip { display: inline-flex; align-items: center; gap: 7px; }
+  .phase-title .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+  .task-row { display: grid; grid-template-columns: 320px repeat(2, 1fr); align-items: center; min-height: 38px; position: relative; }
+  .task-row:nth-of-type(odd) { background: color-mix(in srgb, var(--line) 32%, transparent); }
+  .task-row .row-label { font-size: 12px; color: var(--ink); padding: 6px 14px 6px 20px; line-height: 1.35; }
+
+  .pill-cell { position: relative; height: 100%; display: flex; align-items: center; justify-content: center; padding: 4px 8px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
+    font-size: 11px; font-weight: 600; color: #fff;
+    padding: 4px 9px; border-radius: 20px; line-height: 1.3;
+  }
+  .pill.is-todo { background: transparent; border: 1.5px dashed var(--todo); color: var(--todo); font-weight: 600; }
+
+  .daycols-bg { position: absolute; top: 0; left: 320px; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); pointer-events: none; z-index: 0; }
+  .daycols-bg .col { border-right: 1px solid var(--line); }
+  .daycols-bg .col:last-child { border-right: none; }
+
+  .rows-scroll { position: relative; }
+
+  .tablewrap { margin-top: 30px; }
+  .tablewrap h2 { font-size: 15px; margin: 0 0 10px; }
+  table.sched { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table.sched th, table.sched td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.sched th { color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  table.sched td { color: var(--ink); }
+  table.sched .phase-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  table.sched td.note-cell { color: var(--muted); font-size: 12px; }
+
+  .foot-note { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.75; }
+</style>
+
+<div class="viz-root">
+  <button class="theme-toggle" id="themeToggle">다크 모드</button>
+
+  <h1>소규모학교 통폐합 대상교 선정 시뮬레이터 — 누적 진행상황</h1>
+  <p class="subtitle">기간: <b>2026년 8월 11일(화) ~ 8월 12일(수) · 실제 작업 2일</b> · 원 계획은 19일(8/11~8/29). 각 항목은 최초 구현일과, 2일차에 고도화·수정된 경우 그 내용을 함께 표시한다.</p>
+
+  <div class="kpis" id="kpiRow"></div>
+  <div class="progress-wrap">
+    <div class="progress-head"><span>완료 항목 (배포·보고 2건 제외 — 아직 해당 단계 아님)</span><b id="progressPct" class="mono">–</b></div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="callout">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5 15 14.5H1L8 1.5Z" stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v3.2" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.6" r="0.9" fill="var(--accent)"/></svg>
+    <div>
+      <b>2일 만에 계획된 데이터·기능 범위를 사실상 완료했고, 원 계획에 없던 작업(8번 구간)도 함께 처리했다.</b>
+      1일차는 스택 전환과 MVP 골격을, 2일차는 ①남은 데이터 공백 해소(SGIS·카카오모빌리티) ②요구사항정의서 5절 전체를 실구현과 대조해 발견한 간극 2건(5.3·5.6절) 구현 ③사용자 요청에 따른 CPMP 불능해 정책 강화 ④통합테스트·스트레스테스트 체계화 ⑤API 키 보안 정리 ⑥신규 데이터소스(2025년 교육활동비) 연동에 썼다. 남은 건 배포와 결과보고(7단계)뿐이며, 이는 애초에 최종보고회 시점(8/28~29)에 맞춰 진행할 항목이라 지금 미착수 상태가 정상이다.
+    </div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="chart-card">
+    <div class="grid-wrap">
+      <div class="date-header" id="dateHeader"></div>
+      <div class="rows-scroll" id="rowsScroll">
+        <div class="daycols-bg" id="daycolsBg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <h2>전체 항목 상세 (표 보기)</h2>
+    <table class="sched" id="schedTable">
+      <thead><tr><th>구간</th><th>항목</th><th>1일차(8/11)</th><th>2일차(8/12)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <p class="foot-note">
+    ※ 근거: 프로젝트 폴더 <span class="mono">의사결정_기록.md</span>(2026-08-11~12, 22개 항목) 및 <span class="mono">통합테스트_시나리오.md</span>(19개 시나리오). 시각·정확 확인은 전부 브라우저 실구동으로 검증했다.<br/>
+    ※ 8구간(문서-구현 정합성·보안·신규 데이터)은 원래 19일 계획표에는 없던 작업이다 — 실구현을 요구사항정의서와 대조하는 과정에서, 그리고 사용자의 추가 요청에 따라 2일차에 새로 생긴 범위다.
+  </p>
+</div>
+
+<script>
+const PHASES = [
+  { key: "plan",     label: "1. 기획·요구사항 확정",              color: "var(--series-1)" },
+  { key: "data",     label: "2. 데이터 확보·파이프라인",            color: "var(--series-2)" },
+  { key: "backend",  label: "3. 백엔드·API 개발",                 color: "var(--series-3)" },
+  { key: "frontend", label: "4. 프론트엔드 개발",                  color: "var(--series-4)" },
+  { key: "algo",     label: "5. 알고리즘·시뮬레이션 엔진(CPMP)",     color: "var(--series-5)" },
+  { key: "qa",       label: "6. 통합테스트·QA",                   color: "var(--series-6)" },
+  { key: "deploy",   label: "7. 배포·보고",                      color: "var(--series-7)" },
+  { key: "extra",    label: "8. 정합성 점검·보안·신규 데이터(범위 외)", color: "var(--series-8)" },
+];
+
+// day1 = { text, done }, day2 = { text, done } — done=false는 미착수(점선 파란 테두리 필로 표시)
+const TASKS = [
+  { phase: "plan", name: "잔여 미결사항 확정(시범지역·GIS/좌표 출처·수용상한·보정계수)", d1: "확정 → v1.0", d2: null },
+  { phase: "plan", name: "화면설계(와이어프레임) 확정", d1: "초안 게시", d2: null },
+
+  { phase: "data", name: "원자료 정제 및 DB 스키마 설계·적재", d1: "설계 완료(적재는 보류)", d2: null },
+  { phase: "data", name: "외부데이터 확보(행정경계 GIS·학교좌표·격자인구)", d1: "좌표·격자 확보", d2: "SGIS 실측 경계 연동 완료" },
+  { phase: "data", name: "카카오맵·모빌리티 API 연동", d1: null, d2: "581쌍 실측 이동시간 연동" },
+
+  { phase: "backend", name: "인증(로그인) 및 기본 API 서버", d1: "Streamlit 세션으로 대체", d2: null },
+  { phase: "backend", name: "지역·학교·통계 조회 API", d1: "파일 직접 로드로 대체", d2: null },
+
+  { phase: "frontend", name: "로그인·지도(1단계) 화면", d1: "구현(중심점 마커)", d2: "SGIS 실경계 폴리곤으로 교체" },
+  { phase: "frontend", name: "학교선택(2)·기본통계(3) 화면", d1: "구현", d2: "학급당/교사1인당 학생수·학생1인당 교육활동비 지표 추가" },
+  { phase: "frontend", name: "학생거주정보(4단계) 화면", d1: "구현", d2: null },
+
+  { phase: "algo", name: "이동시간 행렬(d_ij) 산출", d1: "haversine 근사", d2: "카카오모빌리티 실측으로 전환" },
+  { phase: "algo", name: "CPMP 최적화 엔진", d1: "구현·검증", d2: "미배정 학생 발생 시 즉시 불능해 처리로 정책 강화" },
+  { phase: "algo", name: "시뮬레이션(5)·결과(6) 화면 연동", d1: "구현", d2: "학구경계 시각화·통학시간 분포(평균/최대) 추가" },
+
+  { phase: "qa", name: "통합테스트(시나리오 검증)", d1: "브라우저 수동 구동 확인", d2: "19개 시나리오 문서화 + 불능해 정책 스트레스 테스트" },
+  { phase: "qa", name: "버그 수정 및 UI 다듬기", d1: "버그 3건 즉시 수정", d2: "지도 범례·존치/폐교 지표 등 발표용 다듬기" },
+
+  { phase: "deploy", name: "배포 및 최종 검수", d1: null, d2: null, todo: true },
+  { phase: "deploy", name: "결과 보고", d1: null, d2: null, todo: true },
+
+  { phase: "extra", name: "API 키 보안 대응", d1: null, d2: "카카오·SGIS 키 재발급 2건(채팅 노출 대응)" },
+  { phase: "extra", name: "요구사항정의서 정합성 점검·개정", d1: null, d2: "5절 전체를 실구현과 대조 → 5.3·5.6·7.3·7.6·9절 5개 절 개정" },
+  { phase: "extra", name: "신규 데이터소스 연동", d1: null, d2: "2025년 학교 예결산 세출자료 19개교 연동(학생1인당 교육활동비)" },
+];
+
+const DAY_LABELS = [
+  { d: "8/11", dow: "화 · 1일차" },
+  { d: "8/12", dow: "수 · 2일차" },
+];
+
+// KPI
+const totalRows = TASKS.length;
+const todoRows = TASKS.filter(t => t.todo).length;
+const doneRows = totalRows - todoRows;
+const pct = Math.round((doneRows / totalRows) * 100);
+const extraCount = TASKS.filter(t => t.phase === "extra").length;
+
+const kpiRow = document.getElementById("kpiRow");
+kpiRow.innerHTML = `
+  <div class="kpi"><div class="num">${totalRows}</div><div class="lbl">전체 추적 항목</div></div>
+  <div class="kpi"><div class="num" style="color:var(--done)">${doneRows}</div><div class="lbl">완료</div></div>
+  <div class="kpi"><div class="num" style="color:var(--todo)">${todoRows}</div><div class="lbl">미착수(7단계, 예정대로)</div></div>
+  <div class="kpi"><div class="num" style="color:var(--series-8)">${extraCount}</div><div class="lbl">원 계획 외 추가 대응</div></div>
+  <div class="kpi"><div class="num">22</div><div class="lbl">의사결정 기록 항목</div></div>
+`;
+document.getElementById("progressPct").textContent = pct + "%";
+document.getElementById("progressFill").style.width = pct + "%";
+
+// legend
+const legend = document.getElementById("legend");
+legend.innerHTML = PHASES.map(p => `<div class="legend-item"><span class="legend-swatch" style="background:${p.color}"></span>${p.label}</div>`).join("");
+
+// date header
+const dateHeader = document.getElementById("dateHeader");
+dateHeader.innerHTML = `<div></div>` + DAY_LABELS.map(d => `<div class="day-cell">${d.d}<span class="dow">${d.dow}</span></div>`).join("");
+
+// day column backgrounds
+document.getElementById("daycolsBg").innerHTML = `<div class="col"></div><div class="col"></div>`;
+
+// rows
+const rowsScroll = document.getElementById("rowsScroll");
+PHASES.forEach(phase => {
+  const tasks = TASKS.filter(t => t.phase === phase.key);
+  if (!tasks.length) return;
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "phase-title";
+  titleRow.innerHTML = `<span class="chip"><span class="dot" style="background:${phase.color}"></span>${phase.label}</span>`;
+  rowsScroll.appendChild(titleRow);
+
+  tasks.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "task-row";
+    const pill = (text) => text
+      ? `<span class="pill" style="background:${phase.color}">✓ ${text}</span>`
+      : (t.todo ? `<span class="pill is-todo">○ 미착수</span>` : `<span></span>`);
+    row.innerHTML = `
+      <div class="row-label">${t.name}</div>
+      <div class="pill-cell">${pill(t.d1)}</div>
+      <div class="pill-cell">${pill(t.d2)}</div>
+    `;
+    rowsScroll.appendChild(row);
+  });
+});
+
+// table
+const tbody = document.querySelector("#schedTable tbody");
+TASKS.forEach(t => {
+  const phase = PHASES.find(p => p.key === t.phase);
+  const tr = document.createElement("tr");
+  const cell = (text) => text ? text : (t.todo ? "미착수" : "—");
+  tr.innerHTML = `
+    <td><span class="phase-dot" style="background:${phase.color}"></span>${phase.label.replace(/^\\d+\\.\\s*/, "")}</td>
+    <td>${t.name}</td>
+    <td class="note-cell">${cell(t.d1)}</td>
+    <td class="note-cell">${cell(t.d2)}</td>
+  `;
+  tbody.appendChild(tr);
+});
+
+// theme toggle
+const btn = document.getElementById("themeToggle");
+btn.addEventListener("click", () => {
+  const root = document.documentElement;
+  const cur = root.getAttribute("data-theme");
+  if (cur === "dark") { root.setAttribute("data-theme", "light"); btn.textContent = "다크 모드"; }
+  else { root.setAttribute("data-theme", "dark"); btn.textContent = "라이트 모드"; }
+});
+</script>

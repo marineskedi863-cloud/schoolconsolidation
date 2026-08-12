@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>소규모학교 통폐합 시뮬레이터 개발 일정 (간트차트)</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid-line:      #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --status-warning: #fab219;
+    --series-1: #2a78d6; /* 기획/요구사항 */
+    --series-2: #eb6834; /* 데이터 확보·파이프라인 */
+    --series-3: #1baf7a; /* 백엔드/API */
+    --series-4: #eda100; /* 프론트엔드 */
+    --series-5: #e87ba4; /* 알고리즘·시뮬레이션 엔진 */
+    --series-6: #008300; /* 테스트/QA */
+    --series-7: #4a3aa7; /* 배포/보고 */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid-line:      #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --status-warning: #fab219;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --series-5: #d55181;
+      --series-6: #008300;
+      --series-7: #9085e9;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid-line:      #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --status-warning: #fab219;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-plane);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text-primary);
+  }
+  .viz-root { padding: 28px 32px 48px; max-width: 1280px; margin: 0 auto; }
+
+  .theme-toggle {
+    position: fixed; top: 14px; right: 18px; z-index: 50;
+    font-size: 12px; color: var(--text-secondary);
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin: 0 0 18px; }
+
+  .assumption {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--status-warning);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 22px;
+    font-size: 13px; line-height: 1.6; color: var(--text-secondary);
+  }
+  .assumption svg { flex: none; margin-top: 2px; }
+  .assumption b { color: var(--text-primary); }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    margin-bottom: 14px; font-size: 12.5px; color: var(--text-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+
+  .chart-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px 12px;
+    overflow-x: auto;
+  }
+
+  .grid-wrap { position: relative; min-width: 1180px; padding-right: 170px; }
+
+  .date-header {
+    display: grid;
+    grid-template-columns: 300px repeat(19, 1fr);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .date-header .row-label-cell { }
+  .date-header .day-cell {
+    text-align: center; padding: 4px 2px 6px;
+    border-bottom: 1px solid var(--baseline);
+  }
+  .date-header .day-cell.weekend { color: var(--text-secondary); font-weight: 600; }
+  .date-header .day-cell .dow { display: block; font-size: 9.5px; margin-top: 1px; }
+
+  .phase-group { margin-top: 4px; }
+  .phase-title {
+    display: grid; grid-template-columns: 300px repeat(19, 1fr);
+    align-items: center;
+    font-size: 12px; font-weight: 700; color: var(--text-primary);
+    padding: 10px 0 4px;
+  }
+  .phase-title .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .phase-title .dot { width: 9px; height: 9px; border-radius: 2px; }
+
+  .task-row {
+    display: grid; grid-template-columns: 300px repeat(19, 1fr);
+    align-items: center;
+    min-height: 40px;
+    position: relative;
+  }
+  .task-row:nth-of-type(odd) { background: color-mix(in srgb, var(--grid-line) 28%, transparent); }
+  .task-row .row-label {
+    font-size: 12px; color: var(--text-secondary);
+    padding: 6px 14px 6px 20px;
+    white-space: normal; line-height: 1.3;
+  }
+  .bar-cell {
+    grid-column: var(--col-start) / span var(--col-span);
+    position: relative;
+    height: 100%;
+    display: flex; align-items: center;
+  }
+  .bar {
+    height: 16px;
+    border-radius: 4px;
+    width: 100%;
+    position: relative;
+  }
+  .bar .bar-label {
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%; transform: translateY(-50%);
+    font-size: 11px; color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .daycols-bg {
+    position: absolute; top: 0; left: 300px; right: 0; bottom: 0;
+    display: grid; grid-template-columns: repeat(19, 1fr);
+    pointer-events: none; z-index: 0;
+  }
+  .daycols-bg .col { border-right: 1px solid var(--grid-line); }
+  .daycols-bg .col.weekend { background: color-mix(in srgb, var(--baseline) 14%, transparent); }
+
+  .milestones { position: absolute; top: 0; left: 300px; right: 0; bottom: 0; pointer-events: none; z-index: 1; }
+  .milestone-line {
+    position: absolute; top: 0; bottom: 0; width: 0;
+    border-left: 1.5px dashed var(--text-muted);
+  }
+  .milestone-label {
+    position: absolute; top: -2px; transform: translateX(-50%);
+    font-size: 11px; color: var(--text-primary); font-weight: 700;
+    background: var(--surface-1); padding: 0 5px; white-space: nowrap;
+    border: 1px solid var(--baseline); border-radius: 3px;
+  }
+
+  .today-line {
+    position: absolute; top: 0; bottom: 0; width: 0;
+    border-left: 2px solid var(--text-primary);
+  }
+  .today-label {
+    position: absolute; top: -18px; transform: translateX(-50%);
+    font-size: 10px; font-weight: 700; color: var(--text-primary);
+  }
+
+  .rows-scroll { position: relative; }
+
+  .tablewrap { margin-top: 34px; }
+  .tablewrap h2 { font-size: 15px; margin: 0 0 10px; }
+  table.sched {
+    width: 100%; border-collapse: collapse; font-size: 12.5px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  table.sched th, table.sched td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid-line);
+  }
+  table.sched th { color: var(--text-secondary); font-weight: 600; font-size: 11.5px; }
+  table.sched td { color: var(--text-primary); }
+  table.sched td.num { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  table.sched .phase-dot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; }
+
+  .foot-note { margin-top: 18px; font-size: 12px; color: var(--text-muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="viz-root" data-palette="#2a78d6,#eb6834,#1baf7a,#eda100,#e87ba4,#008300,#4a3aa7">
+  <button class="theme-toggle" id="themeToggle">다크 모드</button>
+
+  <h1>소규모학교 통폐합 대상교 선정 시뮬레이터 — 개발 일정(간트차트)</h1>
+  <p class="subtitle">기간: 2026년 8월 11일(화) ~ 8월 29일(토) · 총 19일 · 1차 MVP(시범 교육지원청 1곳, 기존 학교만 후보) 기준</p>
+
+  <div class="assumption">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5 15 14.5H1L8 1.5Z" stroke="#fab219" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v3.2" stroke="#fab219" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.6" r="0.9" fill="#fab219"/></svg>
+    <div>
+      <b>일정 전제(중요):</b> 8/29 마감을 맞추기 위해 ① 주말(8/15·16, 22·23) 포함 매일 작업, ② 프론트엔드·백엔드·알고리즘 트랙 동시 진행이 가능한 인력 배치, ③ 범위는 요구사항정의서의 <b>1차 MVP</b>(시범 교육지원청 1~2곳, 통폐합 후보지는 기존 학교로 한정, 역할기반 권한은 구조만 반영하고 실제 계정 분리는 3차로 이연)로 한정한다고 가정했다.
+      이 세 조건 중 하나라도 달라지면(주중 근무만 가능·개발인력 1인 등) 일정은 이 계획보다 길어진다. 또한 요구사항정의서 11절의 미결 사항 5개(시범지역 범위·GIS경계 출처·학교좌표 출처·수용상한 기본값·이동시간 보정계수) 확정이 8/12까지 늦어지면 후속 일정이 그대로 밀린다.
+    </div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="chart-card">
+    <div class="grid-wrap">
+      <div class="date-header" id="dateHeader"></div>
+      <div class="rows-scroll" id="rowsScroll">
+        <div class="daycols-bg" id="daycolsBg"></div>
+        <div class="milestones" id="milestones"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <h2>전체 작업 목록 (표 보기)</h2>
+    <table class="sched" id="schedTable">
+      <thead>
+        <tr>
+          <th>단계</th><th>작업</th><th>기간</th><th class="num">소요(일)</th><th>선행 작업</th><th>산출물</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <p class="foot-note">
+    ※ 날짜는 2026년 8월 기준(8/11 화요일 시작). 마일스톤: M1 요구사항·화면설계 확정(8/13), M2 데이터 파이프라인 완료(8/15), M3 MVP 기능 통합/코드프리즈(8/23), M4 최종 배포(8/29).<br/>
+    ※ 요구사항정의서(v0.2) 11절의 미결 사항, 7절 CPMP 파라미터, 6절 데이터 요구사항과 연동된 일정이며, 항목이 바뀌면 이 표도 함께 갱신되어야 한다.
+  </p>
+</div>
+
+<script>
+const PHASES = [
+  { key: "plan", label: "1. 기획·요구사항 확정", color: "var(--series-1)" },
+  { key: "data", label: "2. 데이터 확보·파이프라인", color: "var(--series-2)" },
+  { key: "backend", label: "3. 백엔드·API 개발", color: "var(--series-3)" },
+  { key: "frontend", label: "4. 프론트엔드 개발", color: "var(--series-4)" },
+  { key: "algo", label: "5. 알고리즘·시뮬레이션 엔진(CPMP)", color: "var(--series-5)" },
+  { key: "qa", label: "6. 통합테스트·QA", color: "var(--series-6)" },
+  { key: "deploy", label: "7. 배포·보고", color: "var(--series-7)" },
+];
+
+// day 1 = 8/11 ... day 19 = 8/29
+const DAY0 = new Date(2026, 7, 11); // Aug is month index 7
+function dayIndex(m, d) {
+  const dt = new Date(2026, m - 1, d);
+  return Math.round((dt - DAY0) / 86400000) + 1;
+}
+function fmt(m, d) {
+  const dow = ["일","월","화","수","목","금","토"][new Date(2026, m - 1, d).getDay()];
+  return `8/${d}(${dow})`;
+}
+
+const TASKS = [
+  { phase: "plan", name: "잔여 미결사항 확정(시범지역·GIS/좌표 출처·수용상한·보정계수)", s: [8,11], e: [8,12], dep: "-", out: "요구사항정의서 v1.0 확정" },
+  { phase: "plan", name: "화면설계(와이어프레임) 확정", s: [8,12], e: [8,13], dep: "위 항목", out: "와이어프레임" },
+
+  { phase: "data", name: "원자료 정제 및 DB 스키마 설계·적재(CSV+xlsx 통합)", s: [8,12], e: [8,14], dep: "화면설계", out: "적재된 DB" },
+  { phase: "data", name: "외부데이터 확보(행정경계 GIS·학교좌표 지오코딩·격자인구 연동)", s: [8,12], e: [8,15], dep: "화면설계", out: "좌표·경계·격자 데이터셋" },
+  { phase: "data", name: "카카오맵·모빌리티 API 키 발급 및 연동 테스트", s: [8,13], e: [8,14], dep: "-", out: "API 연동 확인" },
+
+  { phase: "backend", name: "인증(로그인) 및 기본 API 서버 구축", s: [8,14], e: [8,16], dep: "DB 적재", out: "인증·서버 골격" },
+  { phase: "backend", name: "지역·학교·통계 조회 API 개발", s: [8,15], e: [8,18], dep: "DB 적재", out: "조회 API" },
+
+  { phase: "frontend", name: "로그인·지도(1단계) 화면 개발", s: [8,14], e: [8,16], dep: "인증 API", out: "1단계 화면" },
+  { phase: "frontend", name: "학교선택·지도배치(2단계)·기본통계(3단계) 화면", s: [8,16], e: [8,19], dep: "조회 API", out: "2·3단계 화면" },
+  { phase: "frontend", name: "학생거주정보(4단계) 화면", s: [8,18], e: [8,20], dep: "격자데이터", out: "4단계 화면" },
+
+  { phase: "algo", name: "이동시간 행렬(d_ij) 산출 모듈(카카오모빌리티)", s: [8,16], e: [8,18], dep: "API 연동", out: "d_ij 산출 모듈" },
+  { phase: "algo", name: "CPMP 최적화 엔진 구현(솔버 연동)", s: [8,17], e: [8,21], dep: "d_ij 모듈", out: "CPMP 엔진" },
+  { phase: "algo", name: "시뮬레이션(5단계)·결과(6단계) 화면 연동", s: [8,20], e: [8,23], dep: "CPMP 엔진, 4단계 화면", out: "5·6단계 화면" },
+
+  { phase: "qa", name: "통합테스트(시범지역 데이터로 1~6단계 시나리오 검증)", s: [8,22], e: [8,25], dep: "전체 기능 통합", out: "테스트 결과서" },
+  { phase: "qa", name: "버그 수정 및 UI 다듬기", s: [8,25], e: [8,27], dep: "통합테스트", out: "수정 완료 빌드" },
+
+  { phase: "deploy", name: "배포 및 요구사항정의서 대비 최종 검수", s: [8,28], e: [8,28], dep: "버그 수정", out: "배포 완료" },
+  { phase: "deploy", name: "결과 보고", s: [8,29], e: [8,29], dep: "배포", out: "완료 보고" },
+];
+
+const MILESTONES = [
+  { m: 8, d: 13, label: "M1" },
+  { m: 8, d: 15, label: "M2" },
+  { m: 8, d: 23, label: "M3" },
+  { m: 8, d: 29, label: "M4" },
+];
+
+const TOTAL_DAYS = 19;
+const WEEKENDS = [15,16,22,23,29].map(d => dayIndex(8, d));
+
+// legend
+const legend = document.getElementById("legend");
+PHASES.forEach(p => {
+  const item = document.createElement("div");
+  item.className = "legend-item";
+  item.innerHTML = `<span class="legend-swatch" style="background:${p.color}"></span>${p.label}`;
+  legend.appendChild(item);
+});
+
+// date header
+const dateHeader = document.getElementById("dateHeader");
+let headerHtml = `<div class="row-label-cell"></div>`;
+for (let i = 1; i <= TOTAL_DAYS; i++) {
+  const dt = new Date(DAY0); dt.setDate(DAY0.getDate() + (i - 1));
+  const d = dt.getDate();
+  const isWeekend = WEEKENDS.includes(i);
+  const dow = ["일","월","화","수","목","금","토"][dt.getDay()];
+  headerHtml += `<div class="day-cell${isWeekend ? " weekend" : ""}">${d}<span class="dow">${dow}</span></div>`;
+}
+dateHeader.innerHTML = headerHtml;
+
+// day column backgrounds
+const daycolsBg = document.getElementById("daycolsBg");
+let bgHtml = "";
+for (let i = 1; i <= TOTAL_DAYS; i++) {
+  bgHtml += `<div class="col${WEEKENDS.includes(i) ? " weekend" : ""}"></div>`;
+}
+daycolsBg.innerHTML = bgHtml;
+
+// rows grouped by phase
+const rowsScroll = document.getElementById("rowsScroll");
+PHASES.forEach(phase => {
+  const tasks = TASKS.filter(t => t.phase === phase.key);
+  if (!tasks.length) return;
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "phase-title";
+  titleRow.innerHTML = `<span class="chip"><span class="dot" style="background:${phase.color}"></span>${phase.label}</span>`;
+  rowsScroll.appendChild(titleRow);
+
+  tasks.forEach(t => {
+    const colStart = dayIndex(t.s[0], t.s[1]) + 1; // +1 because column 1 is the label column
+    const colSpan = dayIndex(t.e[0], t.e[1]) - dayIndex(t.s[0], t.s[1]) + 1;
+    const row = document.createElement("div");
+    row.className = "task-row";
+    row.innerHTML = `
+      <div class="row-label">${t.name}</div>
+      <div class="bar-cell" style="--col-start:${colStart}; --col-span:${colSpan};">
+        <div class="bar" style="background:${phase.color}">
+          <span class="bar-label">${fmt(t.s[0], t.s[1])}–${fmt(t.e[0], t.e[1])}</span>
+        </div>
+      </div>
+    `;
+    rowsScroll.appendChild(row);
+  });
+});
+
+// milestone lines (percentage across the 19-day area)
+const milestones = document.getElementById("milestones");
+let msHtml = "";
+MILESTONES.forEach(ms => {
+  const idx = dayIndex(ms.m, ms.d); // 1..19, milestone marks end of that day
+  const pct = (idx / TOTAL_DAYS) * 100;
+  msHtml += `<div class="milestone-line" style="left:${pct}%"></div>`;
+  msHtml += `<div class="milestone-label" style="left:${pct}%">${ms.label}</div>`;
+});
+milestones.innerHTML = msHtml;
+
+// today line (project start, 8/11)
+const todayIdx = dayIndex(8, 11) - 1; // left edge of day 1
+const todayPct = (todayIdx / TOTAL_DAYS) * 100;
+const todayLine = document.createElement("div");
+todayLine.className = "today-line";
+todayLine.style.left = todayPct + "%";
+todayLine.innerHTML = `<span class="today-label">시작 8/11</span>`;
+milestones.appendChild(todayLine);
+
+// table view
+const tbody = document.querySelector("#schedTable tbody");
+TASKS.forEach(t => {
+  const phase = PHASES.find(p => p.key === t.phase);
+  const dur = dayIndex(t.e[0], t.e[1]) - dayIndex(t.s[0], t.s[1]) + 1;
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><span class="phase-dot" style="background:${phase.color}"></span>${phase.label.replace(/^\\d+\\.\\s*/, "")}</td>
+    <td>${t.name}</td>
+    <td class="num">${fmt(t.s[0], t.s[1])} ~ ${fmt(t.e[0], t.e[1])}</td>
+    <td class="num">${dur}</td>
+    <td>${t.dep}</td>
+    <td>${t.out}</td>
+  `;
+  tbody.appendChild(tr);
+});
+
+// theme toggle
+const btn = document.getElementById("themeToggle");
+btn.addEventListener("click", () => {
+  const root = document.documentElement;
+  const cur = root.getAttribute("data-theme");
+  if (cur === "dark") { root.setAttribute("data-theme", "light"); btn.textContent = "다크 모드"; }
+  else { root.setAttribute("data-theme", "dark"); btn.textContent = "라이트 모드"; }
+});
+</script>
+</body>
+</html>
