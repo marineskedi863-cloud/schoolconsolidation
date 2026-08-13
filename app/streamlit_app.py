@@ -381,10 +381,26 @@ def render_step5():
 
     st.subheader("학교 수(통폐합 비율)에 따른 통학시간 분포")
     sweep_key = f"p_sweep_{ss.selected_region}_{ss.grid_level}_{'kakao' if matrix_df is not None else 'approx'}"
-    if sweep_key not in ss:
+    sweep_pair_count = len(demand_points) * len(schools)
+    # 2026-08-12 발견: 학교·격자가 많은 대도시(예: 화성시 107개교 x 격자 ~540개 = 5.8만 쌍)에서
+    # p=1..전체 구간을 최대 30번 반복 계산하다 보니 CPMP(MILP) 연산이 수십 분 이상 걸려 5단계
+    # 화면 전체가 멈추는 문제 발견 — 자동 계산 대신, 쌍이 많으면 사용자가 직접 버튼을 눌러야
+    # 계산하도록 전환(카카오모빌리티 온디맨드 계산과 동일한 패턴, 회귀도 없음).
+    SWEEP_AUTO_THRESHOLD = 5000
+    if sweep_key not in ss and sweep_pair_count <= SWEEP_AUTO_THRESHOLD:
         with st.spinner("잔존 학교 수(p)별 통학시간 분포 계산 중..."):
             ss[sweep_key] = p_sweep_travel_minutes(demand_points, schools, distance_matrix=distance_matrix)
-    sweep_rows = ss[sweep_key]
+    elif sweep_key not in ss:
+        st.warning(
+            f"⚠ '{ss.selected_region}'은 학교·격자 조합이 많아({sweep_pair_count:,}쌍) 사전 탐색 계산에 "
+            "시간이 오래 걸릴 수 있습니다(대략 수 분~수십 분). 필요하면 아래 버튼으로 직접 계산해 주세요 "
+            "— 시뮬레이션 자체(아래 '시뮬레이션 시작')는 이 계산과 무관하게 바로 실행할 수 있습니다."
+        )
+        if st.button("사전 탐색 그래프 계산하기"):
+            with st.spinner("잔존 학교 수(p)별 통학시간 분포 계산 중... (규모가 커 시간이 걸릴 수 있습니다)"):
+                ss[sweep_key] = p_sweep_travel_minutes(demand_points, schools, distance_matrix=distance_matrix)
+            st.rerun()
+    sweep_rows = ss.get(sweep_key)
     if sweep_rows:
         sweep_df = pd.DataFrame(sweep_rows)
         chart = alt.Chart(sweep_df).mark_boxplot(size=18, color="#4c78a8").encode(
@@ -406,7 +422,7 @@ def render_step5():
             "이 그래프는 수용상한·이동시간 제한 없이 p만 바꿔 계산한 참고용 탐색 결과이며, "
             "위 파라미터로 실행하는 아래 실제 시뮬레이션(수용상한·이동시간 제한 적용)과 값이 다를 수 있습니다."
         )
-    else:
+    elif sweep_key in ss:
         st.info("학교 수별 통학시간 분포를 계산할 수 없습니다.")
 
     if st.button("시뮬레이션 시작", type="primary"):

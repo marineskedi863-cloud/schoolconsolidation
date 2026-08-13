@@ -38,6 +38,25 @@ def load_xlsx(path: Path) -> pd.DataFrame:
     return df.iloc[1:].copy()  # 첫 데이터행은 서브헤더(학급수/학생수/학급당학생수)
 
 
+# 2026-08-12 발견: 경기도 xlsx 원본의 "지역" 컬럼이 통째로 비어있는 학교 7개(용인·화성오산
+# 교육지원청 소속) — school_dim.region_name이 NaN이 되어 schools_in_region()의 접두어 매칭에서
+# 아예 빠지는(어느 시군구를 선택해도 안 보이는) 버그로 이어짐. 학교 좌표(data/raw/school_locations.csv)를
+# SGIS 시군구 경계(admin_boundary_경기도.geojson)와 point-in-polygon 대조해 직접 역산: 용인교육지원청
+# 소속(제일초)은 유일 소속지인 처인구로 확정, 화성오산교육지원청 소속 6개교는 좌표가 전부 화성시
+# 경계 안에 있어 화성시로 확정(SGIS가 화성시를 하위 구로 나누지 않아 구 단위까지는 특정 불가 —
+# school_dim의 다른 화성시 학교처럼 "동탄구" 등 세분화된 값은 아니지만, schools_in_region()의
+# 접두어 매칭(정확히 일치 또는 "경기도 화성시 "로 시작)에는 문제없이 걸림).
+REGION_NAME_OVERRIDES = {
+    "S090003553": "경기도 용인시 처인구",  # 제일초등학교
+    "S090004292": "경기도 화성시",          # 동탄초등학교
+    "S090006946": "경기도 화성시",          # 영천초등학교
+    "S090007396": "경기도 화성시",          # 여울초등학교
+    "S090006652": "경기도 화성시",          # 화성반월중학교
+    "S090007256": "경기도 화성시",          # 이산중학교
+    "S090007522": "경기도 화성시",          # 치동중학교
+}
+
+
 def build_school_dim(office_contains: str) -> pd.DataFrame:
     """xlsx(2025년 기준)를 표준으로 학교 차원 테이블 생성."""
     rows = []
@@ -59,6 +78,13 @@ def build_school_dim(office_contains: str) -> pd.DataFrame:
                 "excluded": str(r.get("제외여부", "N")).strip().upper() == "Y",
             })
     dim = pd.DataFrame(rows).drop_duplicates(subset=["school_code"])
+    missing = dim["region_name"].isna()
+    if missing.any():
+        dim.loc[missing, "region_name"] = dim.loc[missing, "school_code"].map(REGION_NAME_OVERRIDES)
+        still_missing = dim["region_name"].isna().sum()
+        if still_missing:
+            print(f"경고: region_name 보정 후에도 {still_missing}개교가 여전히 비어있음 "
+                  "(REGION_NAME_OVERRIDES에 새 school_code 추가 필요)")
     return dim
 
 
