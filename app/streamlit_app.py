@@ -169,7 +169,9 @@ def render_step2():
                "(교육지원청별 파라미터, 요구사항정의서 3절 — 임시값, 확정 필요)")
 
     coords = da.load_school_coordinates()
-    if coords is not None:
+    if view.empty:
+        st.info(f"'{ss.selected_region}'에 '{level}' · '{estab}' 학교가 없습니다. 학교급·설립구분을 바꿔 주세요.")
+    elif coords is not None:
         merged = view.merge(coords, on="school_code", how="left")
         m = folium.Map(location=[merged["lat"].mean(), merged["lon"].mean()], zoom_start=11)
         add_region_boundary(m, ss.selected_region)
