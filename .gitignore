@@ -11,6 +11,7 @@ data/raw/salary_table/
 data/raw/closed_school_assets/
 data/raw/population_dong/
 data/raw/dong_code_match/
+data/raw/business_employment/
 data/raw/school_locations_gyeonggi_raw.json
 data/raw/school_locations_yeoncheon_raw.json
 data/raw/*_backup.csv
