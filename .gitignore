@@ -7,6 +7,10 @@ __pycache__/
 # 용량이 커서(수십 MB) 저장소에는 올리지 않고 로컬에만 보관한다.
 data/raw/grid_*/
 data/raw/budget_2025/
+data/raw/salary_table/
+data/raw/closed_school_assets/
+data/raw/population_dong/
+data/raw/dong_code_match/
 data/raw/school_locations_gyeonggi_raw.json
 data/raw/school_locations_yeoncheon_raw.json
 data/raw/*_backup.csv
