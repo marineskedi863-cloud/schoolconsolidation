@@ -85,7 +85,7 @@ def render_login():
         st.caption("단일 공유계정 · 추후 역할기반 권한(RBAC) 확장 예정 (요구사항정의서 4.1절)")
         if submitted:
             valid_id = os.environ.get("APP_LOGIN_ID", "kedi")
-            valid_pw = os.environ.get("APP_LOGIN_PASSWORD", "[REDACTED]")
+            valid_pw = os.environ.get("APP_LOGIN_PASSWORD", "kedi0863!")
             if username == valid_id and password == valid_pw:
                 ss.logged_in = True
                 ss.step = 1
